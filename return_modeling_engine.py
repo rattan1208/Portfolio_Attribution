@@ -776,6 +776,82 @@ def get_PCA(combined, factor_columns,
 
 
 
+
+def calculate_geometric_attribution(attribution):
+    """
+    Convert monthly arithmetic attribution into geometrically
+    linked cumulative attribution using the Carino method.
+
+    Factor contributions, regression intercept and unexplained
+    return will reconcile to the compounded actual portfolio return.
+    """
+
+    result = pd.DataFrame(index=attribution.index)
+
+    component_columns = [
+        col for col in attribution.columns
+        if col not in ["Actual_Return", "Model_Return"]
+    ]
+
+    valid = attribution["Actual_Return"].notna()
+
+    data = attribution.loc[valid].copy()
+
+    if data.empty:
+        return result
+
+    monthly_returns = data["Actual_Return"].astype(float)
+
+    if (monthly_returns <= -1).any():
+        raise ValueError("Monthly returns cannot be -100% or lower.")
+
+    # Monthly Carino linking coefficient
+    def carino_k(return_value):
+        if abs(return_value) < 1e-12:
+            return 1.0
+        return np.log1p(return_value) / return_value
+
+    monthly_k = monthly_returns.apply(carino_k)
+
+    # Cumulative compounded portfolio return
+    cumulative_returns = (
+        (1 + monthly_returns).cumprod() - 1
+    )
+
+    linked = pd.DataFrame(
+        0.0,
+        index=data.index,
+        columns=component_columns
+    )
+
+    for i, current_date in enumerate(data.index):
+
+        cumulative_return = cumulative_returns.iloc[i]
+
+        cumulative_k = carino_k(cumulative_return)
+
+        weights = monthly_k.iloc[:i + 1] / cumulative_k
+
+        linked.loc[current_date] = (
+            data[component_columns]
+            .iloc[:i + 1]
+            .mul(weights, axis=0)
+            .sum(axis=0)
+        )
+
+    # Store geometrically linked factor contributions
+    result = linked
+
+    # Store actual and model returns as compounded return series
+    result["Actual_Return"] = cumulative_returns
+
+    result["Model_Return"] = (
+        (1 + data["Model_Return"]).cumprod() - 1
+    )
+
+    return result
+
+
 def calculate_portfolio_factor_attribution(
     start_date,
     end_date,
@@ -786,7 +862,7 @@ def calculate_portfolio_factor_attribution(
     significance_level=0.05,
     min_improvement=0.001,
     pca_variance_threshold=0.90,
-    pca_components = 7
+    pca_components = 5
 ):
     """
     Calculate monthly portfolio returns and rolling factor attribution
@@ -1064,7 +1140,7 @@ def calculate_portfolio_factor_attribution(
     # 11. Cumulative additive factor attribution
     # --------------------------------------------------
 
-    cumulative_attribution = attribution.cumsum()
+    cumulative_attribution = calculate_geometric_attribution(attribution)
 
     # --------------------------------------------------
     # 12. Return results

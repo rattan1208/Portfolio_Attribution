@@ -11,13 +11,14 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-script_path = Path(r"C:\Users\MSUSERSL123\Downloads\MARSH")
-sys.path.append(str(script_path))
+#script_path = Path(r"C:\Users\MSUSERSL123\Downloads\MARSH")
+#sys.path.append(str(script_path))
 
 # Create database in the same folder
-db_path = script_path / "project_db.db"
+#db_path = script_path / "project_db.db"
 
 script_path = Path(__file__).resolve().parent
+sys.path.append(str(script_path))
 db_path = script_path / "project_db.db"
 
 from return_modeling_engine import calculate_portfolio_factor_attribution
@@ -44,7 +45,7 @@ ETF_TICKERS = [
 ]
 
 LOOKBACK_OPTIONS = [12, 18, 24, 30, 36]
-MODEL_OPTIONS = ["OLS", "Ridge", "PCA"]
+MODEL_OPTIONS = ["OLS", "Ridge"]
 
 MIN_START_MONTH = pd.Period("2019-11", freq="M")
 
@@ -137,8 +138,8 @@ with portfolio_tab:
         start_month = st.selectbox(
             "Start Month",
             month_options,
-            index=month_options.index("11-2019")
-            if "11-2019" in month_options else 0
+            index=month_options.index("01-2020")
+            if "01-2020" in month_options else 0
         )
 
     start_period = parse_month(start_month)
@@ -157,14 +158,15 @@ with portfolio_tab:
         end_month = st.selectbox(
             "End Month",
             valid_end_options,
-            index=len(valid_end_options) - 1
+            index=valid_end_options.index("12-2020")
+            if "12-2020" in valid_end_options else (len(valid_end_options) - 1)
         )
 
     with col3:
         rolling_window = st.selectbox(
             "Rolling Lookback (Months)",
             LOOKBACK_OPTIONS,
-            index=2
+            index=3
         )
 
     with col4:
@@ -185,12 +187,12 @@ with portfolio_tab:
 
     default_allocations = {
         "ACWI": 30.0,
-        "TLT": 15.0,
-        "LQD": 15.0,
-        "HYG": 10.0,
+        "TLT": 10.0,
+        "LQD": 25.0,
+        "HYG": 15.0,
         "EMB": 10.0,
-        "USRT": 10.0,
-        "COMT": 10.0
+        "USRT": 5.0,
+        "COMT": 5.0
     }
 
     allocation_columns = st.columns(4)
